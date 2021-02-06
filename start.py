@@ -20,26 +20,32 @@ class WSN(object):
     xm = 200  # Length of the yard
     ym = 200  # Width of the yard
     n = 100  # total number of nodes
-    sink = None  # Sink node
-    nodes = None  # All sensor nodes set
+
+    sink = None  # Sink node, type is 'Node'
+    nodes_list = None  # All sensor nodes set
+
     # Energy model (all values in Joules)
     # Eelec = ETX = ERX
     ETX = 50 * (10 ** (-9))  # Energy for transferring of each bit:Transmission unit message loss energy:50nJ/bit
     ERX = 50 * (10 ** (-9))  # Energy for receiving of each bit:Receive unit message loss energy:50nJ/bit
+
     # Transmit Amplifier types
     Efs = 10 * (10 ** (-12))  # Energy of free space model:Free space propagation model:10pJ/bit/m2
-    Emp = 0.0013 * (
-            10 ** (-12))  # Energy of multi path model:Multipath attenuation spatial energy model:0.0013pJ/bit/m4
+
+    # Energy of multi path model:Multipath attenuation spatial energy model:0.0013pJ/bit/m4
+    Emp = 0.0013 * (10 ** (-12))
     EDA = 5 * (10 ** (-9))  # Data aggregation energy:Aggregate energy 5nJ/bit
     f_r = 0.6  # fusion_rate:Fusion rate, 0 means perfect fusion
+
     # Message
-    CM = 32  # Control message size/bit
-    DM = 4096  # Data message size/bit
+    CM = 3200  # Control message size/bit
+    DM = 40960  # Data message size/bit
+
     # computation of do
     do = np.sqrt(Efs / Emp)  # 87.70580193070293
 
     # Malicious sensor node
-    m_n = 3  # the number of malicious sensor nodes
+    m_n = 0  # the number of malicious sensor nodes
 
     # Node State in Network
     n_dead = 0  # The number of dead nodes
@@ -62,8 +68,8 @@ class WSN(object):
             energy = WSN.ETX * data + WSN.Efs * data * (dis ** 2)
         return energy
 
-    def node_state(r):
-        nodes = WSN.nodes
+    def node_state(r: int):
+        nodes = WSN.nodes_list
         n_dead = 0
         for node in nodes:
             if node.energy <= Node.energy_threshold:
@@ -82,14 +88,15 @@ class WSN(object):
 
 class Leach(object):
     """ Leach """
-    # Optimal selection probablitity of a node to become cluster head
-    p = 0.1  # Probability of being selected as cluster head
+
+    p = 0.1  # Optimal selection Probability of a node to become cluster head
     period = int(1 / p)  # cycle
-    heads = None  # Cluster head node list
+
+    cluster_head_list = None  # Cluster head node list
     members = None  # List of non-cluster head members
     cluster = None  # Cluster dictionary: {"cluster head 1": [cluster member], "cluster head 2": [cluster member],...}
-    r = 0  # Current round
-    rmax = 5  # 9999 # default maximum round
+    current_round_no = 0  # Current round
+    rmax = 2000  # 9999 # default maximum round
     r_empty = 0  # Empty wheel
 
     def show_cluster(self):
@@ -105,7 +112,7 @@ class Leach(object):
 
         # Show each cluster classification list
         i = 0
-        nodes = WSN.nodes
+        nodes = WSN.nodes_list
         for key, value in Leach.cluster.items():
             cluster_head = nodes[int(key)]
             # print("First", i + 1, "The cluster center is:", cluster_head)
@@ -134,15 +141,16 @@ class Leach(object):
 
     def cluster_head_selection(self):
         """ Select the cluster head node according to the threshold """
-        nodes = WSN.nodes
+
+        nodes = WSN.nodes_list
         n = WSN.n  # Non-malicious node
-        heads = Leach.heads = []  # List of cluster heads, initialized to empty every round
+        heads = Leach.cluster_head_list = []  # List of cluster heads, initialized to empty every round
         members = Leach.members = []  # List of non-cluster members
         p = Leach.p
-        r = Leach.r
+        r = Leach.current_round_no
         period = Leach.period
         Tn = p / (1 - p * (r % period))  # Threshold Tn
-        print(Leach.r, Tn)
+        print(Leach.current_round_no, Tn)
         for i in range(n):
             # After the energy dissipated in a given node reached a set threshold, 
             # that node was considered dead for the remainder of the simulation.
@@ -178,8 +186,8 @@ class Leach(object):
 
     def cluster_formation(self):
         """ Cluster classification """
-        nodes = WSN.nodes
-        heads = Leach.heads
+        nodes = WSN.nodes_list
+        heads = Leach.cluster_head_list
         members = Leach.members
         cluster = Leach.cluster = {}  # Cluster dictionary initialization
         # There is no cluster head in this round, and no cluster is formed
@@ -235,7 +243,7 @@ class Leach(object):
     def steady_state_phase(self):
         """ The cluster members send data to the cluster head, the cluster head gathers the data
         and then sends the data to the sink node """
-        nodes = WSN.nodes
+        nodes = WSN.nodes_list
         cluster = Leach.cluster
         # If no clusters are formed this round, exit
         if not cluster:
@@ -270,20 +278,23 @@ class Leach(object):
 
     def run_leach(self):
         for r in range(Leach.rmax):
-            Leach.r = r
-            nodes = WSN.nodes
-            # When a new cycle starts, G is reset to 0
+            Leach.current_round_no = r
+            nodes_list = WSN.nodes_list
+
+            # When a new cycle starts, G is reset to 0 for all nodes
             if (r % Leach.period) == 0:
-                print("==============================")
-                for node in nodes:
+                print("================== NEW CYCLE ==================")
+                for node in nodes_list:
                     node.G = 0
+
             # At the beginning of each round, the node type is reset to non-cluster head node
-            for node in nodes:
+            for node in nodes_list:
                 node.type = "N"
+
             Leach.leach(self)
             WSN.node_state(r)
             if WSN.flag_all_dead:
-                print("==============================")
+                print("================== ALL DEAD ==================")
                 break
             Leach.show_cluster(self)
 
@@ -291,8 +302,9 @@ class Leach(object):
 class Node(object):
     """ Sensor Node """
     energy_init = 0.5  # initial energy of a node
-    # After the energy dissipated in a given node reached a set threshold,
-    # that node was considered dead for the remainder of the simulation.
+
+    # After the energy dissipated in a given node reaches a set threshold,
+    # that node will be considered dead for the remainder of the simulation.
     energy_threshold = 0.001
 
     def __init__(self):
@@ -314,20 +326,21 @@ class Node(object):
 
     def init_nodes(self):
         """ Initialize attributes of every node in order """
-        nodes = []
+        nodes_list = []
 
         # Initial common node
         for i in range(WSN.n):
             node = Node()
             node.id = i
-            nodes.append(node)
+            nodes_list.append(node)
         # Initial sink node
         sink = Node()
         sink.id = -1
         sink.xm = 0.5 * WSN.xm  # x coordination of base station
-        sink.ym = 50 + WSN.ym  # y coordination of base station
+        sink.ym = 0.5 * WSN.ym  # y coordination of base station
+
         # Add to WSN
-        WSN.nodes = nodes
+        WSN.nodes_list = nodes_list
         WSN.sink = sink
 
     def init_malicious_nodes(self):
@@ -336,10 +349,10 @@ class Node(object):
         for i in range(WSN.m_n):
             node = Node()
             node.id = WSN.n + i
-            WSN.nodes.append(node)
+            WSN.nodes_list.append(node)
 
     def plot_wsn(self):
-        nodes = WSN.nodes
+        nodes = WSN.nodes_list
         n = WSN.n
         m_n = WSN.m_n
 
@@ -368,21 +381,20 @@ class Node(object):
         plt.legend()
         plt.xlabel('X/m')
         plt.ylabel('Y/m')
+        plt.savefig('0.png', bbox_inches='tight')
         plt.show()
 
 
 def main():
-    my_node = Node()
-    my_node.init_nodes()
-    my_node.init_malicious_nodes()
-    my_node.plot_wsn()
+    Node().init_nodes()
+    Node().init_malicious_nodes()
+    Node().plot_wsn()  # this will plot all the nodes and sink only. This is before simulation starts
 
-    my_leach = Leach()
-    my_leach.run_leach()
+    Leach().run_leach()
 
-    # print("The first node died in Round %d!" % (WSN.round_first_dead))
-    # print("The network stop working in Round %d!" % (WSN.round_net_stop))
-    # print("All nodes died in Round %d!" % (WSN.round_all_dead))
+    print("The first node died in Round %d!" % (WSN.round_first_dead))
+    print("The network stop working in Round %d!" % (WSN.round_net_stop))
+    print("All nodes died in Round %d!" % (WSN.round_all_dead))
 
 
 def test():
