@@ -7,6 +7,9 @@
 @Date   ：2019-09-27
 ==================================================
 '''
+# https://www.geeksforgeeks.org/matplotlib-markers-module-in-python/
+# https://stackoverflow.com/questions/22408237/named-colors-in-matplotlib
+
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -25,7 +28,8 @@ class WSN(object):
     ERX = 50 * (10 ** (-9))  # Energy for receiving of each bit:Receive unit message loss energy:50nJ/bit
     # Transmit Amplifier types
     Efs = 10 * (10 ** (-12))  # Energy of free space model:Free space propagation model:10pJ/bit/m2
-    Emp = 0.0013 * (10 ** (-12))  # Energy of multi path model:Multipath attenuation spatial energy model:0.0013pJ/bit/m4
+    Emp = 0.0013 * (
+            10 ** (-12))  # Energy of multi path model:Multipath attenuation spatial energy model:0.0013pJ/bit/m4
     EDA = 5 * (10 ** (-9))  # Data aggregation energy:Aggregate energy 5nJ/bit
     f_r = 0.6  # fusion_rate:Fusion rate, 0 means perfect fusion
     # Message
@@ -47,7 +51,7 @@ class WSN(object):
     round_net_stop = 0  # The round when the network stop working
 
     def dist(x, y):
-        """ 判断两个节点之间的一维距离 """
+        """ Determine the one-dimensional distance between two nodes """
         distance = np.sqrt(np.power((x.xm - y.xm), 2) + np.power((x.ym - y.ym), 2))
         return distance
 
@@ -88,7 +92,7 @@ class Leach(object):
     rmax = 5  # 9999 # default maximum round
     r_empty = 0  # Empty wheel
 
-    def show_cluster():
+    def show_cluster(self):
         fig = plt.figure()
         # Set title
         # Set X axis label
@@ -115,7 +119,7 @@ class Leach(object):
         # Show the drawn picture
         plt.show()
 
-    def optimum_number_of_clusters():
+    def optimum_number_of_clusters(self):
         """ Optimal number of cluster heads under perfect fusion """
 
         N = WSN.n - WSN.n_dead
@@ -128,7 +132,7 @@ class Leach(object):
         p = int(k_opt) / N
         return p
 
-    def cluster_head_selection():
+    def cluster_head_selection(self):
         """ Select the cluster head node according to the threshold """
         nodes = WSN.nodes
         n = WSN.n  # Non-malicious node
@@ -172,7 +176,7 @@ class Leach(object):
         print("The number of CHs is:", len(heads), (WSN.n - WSN.n_dead))
         return None  # heads, members
 
-    def cluster_formation():
+    def cluster_formation(self):
         """ Cluster classification """
         nodes = WSN.nodes
         heads = Leach.heads
@@ -224,11 +228,11 @@ class Leach(object):
         #        print(cluster)
         return None  # cluster
 
-    def set_up_phase():
-        Leach.cluster_head_selection()
-        Leach.cluster_formation()
+    def set_up_phase(self):
+        Leach.cluster_head_selection(self)
+        Leach.cluster_formation(self)
 
-    def steady_state_phase():
+    def steady_state_phase(self):
         """ The cluster members send data to the cluster head, the cluster head gathers the data
         and then sends the data to the sink node """
         nodes = WSN.nodes
@@ -249,7 +253,8 @@ class Leach(object):
             if n_member == 0:  # If there is no cluster member, only the cluster head collects its own information and sends it to the base station
                 energy = WSN.trans_energy(WSN.DM, d_h2s)
             else:
-                new_data = WSN.DM * (n_member + 1)  # In addition to the data collected by the cluster head itself, a new data packet after fusion
+                new_data = WSN.DM * (
+                        n_member + 1)  # In addition to the data collected by the cluster head itself, a new data packet after fusion
                 E_DA = WSN.EDA * new_data  # Energy consumption of aggregated data
                 if WSN.f_r == 0:  # f_r is 0 represents perfect integration of data
                     new_data_ = WSN.DM
@@ -259,11 +264,11 @@ class Leach(object):
                 energy = E_DA + E_Trans
             head.energy -= energy
 
-    def leach():
-        Leach.set_up_phase()
-        Leach.steady_state_phase()
+    def leach(self):
+        Leach.set_up_phase(self)
+        Leach.steady_state_phase(self)
 
-    def run_leach():
+    def run_leach(self):
         for r in range(Leach.rmax):
             Leach.r = r
             nodes = WSN.nodes
@@ -275,12 +280,12 @@ class Leach(object):
             # At the beginning of each round, the node type is reset to non-cluster head node
             for node in nodes:
                 node.type = "N"
-            Leach.leach()
+            Leach.leach(self)
             WSN.node_state(r)
             if WSN.flag_all_dead:
                 print("==============================")
                 break
-            Leach.show_cluster()
+            Leach.show_cluster(self)
 
 
 class Node(object):
@@ -295,19 +300,22 @@ class Node(object):
         self.id = None  # Node ID
         self.xm = np.random.random() * WSN.xm
         self.ym = np.random.random() * WSN.ym
-        self.energy = Node.energy_init
-        self.type = "N"  # "N" = Node (Non-CH): Type:- normal node
+
+        self.energy = 0.5  # initial energy of a node
+        self.type = "N"  # "N" = Normal Node (Non-CH)
 
         # G is the set of nodes that have not been cluster-heads in the last 1/p rounds.
-        # the flag determines whether it's a CH or not: In each cycle,
-        # this flag is 0 means it is not selected as the cluster head, 1 means it is selected as the cluster head
+        # the flag determines whether it's a CH or not.
+        # In each cycle, this flag is 0 means it is not selected as the cluster head,
+        # 1 means it is selected as the cluster head
         self.G = 0
 
-        self.head_id = None  # The id of its CH：Subordinate cluster, None: Means that no cluster has been added
+        self.head_id = None  # The id of its CH：Subordinate cluster, None Means that no cluster has been added
 
     def init_nodes(self):
         """ Initialize attributes of every node in order """
         nodes = []
+
         # Initial common node
         for i in range(WSN.n):
             node = Node()
@@ -324,6 +332,7 @@ class Node(object):
 
     def init_malicious_nodes(self):
         """ Initialize attributes of every malicious node in order """
+
         for i in range(WSN.m_n):
             node = Node()
             node.id = WSN.n + i
@@ -376,5 +385,28 @@ def main():
     # print("All nodes died in Round %d!" % (WSN.round_all_dead))
 
 
+def test():
+    import matplotlib.pyplot as plt
+    # x axis values
+    x = [1, 2, 3, 4, 5, 6]
+    # corresponding y axis values
+    y = [2, 4, 1, 5, 2, 6]
+    # plotting the points
+    plt.plot(x, y, 'kp')
+    #
+    # # setting x and y axis range
+    # plt.ylim(1, 8)
+    # plt.xlim(1, 8)
+    # naming the x axis
+    plt.xlabel('x - axis')
+    # naming the y axis
+    plt.ylabel('y - axis')
+    # giving a title to my graph
+    plt.title('Some cool customizations!')
+    # function to show the plot
+    plt.show()
+
+
 if __name__ == '__main__':
     main()
+    # test()
