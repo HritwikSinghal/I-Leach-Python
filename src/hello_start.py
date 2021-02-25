@@ -9,7 +9,7 @@
 '''
 # https://www.geeksforgeeks.org/matplotlib-markers-module-in-python/
 # https://stackoverflow.com/questions/22408237/named-colors-in-matplotlib
-
+import random
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,8 +17,8 @@ import matplotlib.pyplot as plt
 
 class WSN(object):
     """ The network architecture with desired parameters """
-    xm = 200  # Length of the yard
-    ym = 200  # Width of the yard
+    xm = 1000  # Length of the yard
+    ym = 1000  # Width of the yard
     n = 100  # total number of nodes
 
     sink = None  # Sink node, type is 'Node'
@@ -195,7 +195,7 @@ class Leach(object):
             return None
         # If the cluster head exists, use the cluster head id as the key value of the cluster dictionary
         for head in heads:
-            cluster[str(head.id)] = []  # Empty list of members
+            cluster[str(head.uid)] = []  # Empty list of members
         # print("Classification dictionary with cluster head only:", cluster)
         # Traverse non-cluster head nodes and build clusters
 
@@ -211,7 +211,7 @@ class Leach(object):
                 tmp = WSN.dist(member, head)
                 if tmp <= min_dis:
                     min_dis = tmp
-                    head_id = head.id
+                    head_id = head.uid
             member.head_id = head_id  # Cluster head found
             # Send joining information to notify its cluster head to become its member
             # send join-request messages to chosen cluster-head
@@ -220,7 +220,7 @@ class Leach(object):
             # wait for join-request messages
             head = nodes[head_id]
             head.energy -= WSN.ERX * WSN.CM
-            cluster[str(head_id)].append(member.id)  # Add to the corresponding cluster head of the clustering class
+            cluster[str(head_id)].append(member.uid)  # Add to the corresponding cluster head of the clustering class
         # Assign each node in the cluster the time point to pass data to it
         # Create a TDMA schedule and this schedule is broadcast back to the nodes in the cluster.
         for key, values in cluster.items():
@@ -301,7 +301,7 @@ class Leach(object):
 
 class Node(object):
     """ Sensor Node """
-    energy_init = 0.5  # initial energy of a node
+    initial_energy = 0.5  # initial energy of a node
 
     # After the energy dissipated in a given node reaches a set threshold,
     # that node will be considered dead for the remainder of the simulation.
@@ -309,9 +309,9 @@ class Node(object):
 
     def __init__(self):
         """ Create the node with default attributes """
-        self.id = None  # Node ID
-        self.xm = np.random.random() * WSN.xm
-        self.ym = np.random.random() * WSN.ym
+        self.uid = random.randint(0, 1000000000)  # node ID for identification
+        self.xm = np.random.random() * WSN.xm  # Random X coordinate
+        self.ym = np.random.random() * WSN.ym  # Random Y coordinate
 
         self.energy = 0.5  # initial energy of a node
         self.type = "N"  # "N" = Normal Node (Non-CH)
@@ -331,11 +331,11 @@ class Node(object):
         # Initial common node
         for i in range(WSN.n):
             node = Node()
-            node.id = i
+            node.uid = i
             nodes_list.append(node)
         # Initial sink node
         sink = Node()
-        sink.id = -1
+        sink.uid = -1
         sink.xm = 0.5 * WSN.xm  # x coordination of base station
         sink.ym = 0.5 * WSN.ym  # y coordination of base station
 
@@ -348,7 +348,7 @@ class Node(object):
 
         for i in range(WSN.m_n):
             node = Node()
-            node.id = WSN.n + i
+            node.uid = WSN.n + i
             WSN.nodes_list.append(node)
 
     def plot_wsn(self):
@@ -381,7 +381,7 @@ class Node(object):
         plt.legend()
         plt.xlabel('X/m')
         plt.ylabel('Y/m')
-        plt.savefig('0.png', bbox_inches='tight')
+        # plt.savefig('0.png', bbox_inches='tight')
         plt.show()
 
 
@@ -397,28 +397,24 @@ def main():
     print("All nodes died in Round %d!" % (WSN.round_all_dead))
 
 
-def test():
-    import matplotlib.pyplot as plt
-    # x axis values
-    x = [1, 2, 3, 4, 5, 6]
-    # corresponding y axis values
-    y = [2, 4, 1, 5, 2, 6]
-    # plotting the points
-    plt.plot(x, y, 'kp')
-    #
-    # # setting x and y axis range
-    # plt.ylim(1, 8)
-    # plt.xlim(1, 8)
-    # naming the x axis
-    plt.xlabel('x - axis')
-    # naming the y axis
-    plt.ylabel('y - axis')
-    # giving a title to my graph
-    plt.title('Some cool customizations!')
-    # function to show the plot
-    plt.show()
-
-
 if __name__ == '__main__':
     main()
-    # test()
+
+
+# import cv2, pytesseract
+#
+#
+# def start():
+#     x = cv2.imread('/home/hritwik/Pictures/Screenshot from 2021-02-14 21-40-03_NNNEW.png', 0)
+#     ret, thresh1 = cv2.threshold(x, 127, 255, cv2.THRESH_TOZERO)
+#     text = (pytesseract.image_to_string(thresh1))
+#     my = ((text).split(" "))
+#     print(','.join(my))
+#     cv2.imshow('Set to 0 Inverted', thresh1)
+#
+#     # De-allocate any associated memory usage
+#     if cv2.waitKey(0) & 0xff == 27:
+#         cv2.destroyAllWindows()
+#
+#
+# start()

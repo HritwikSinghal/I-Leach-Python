@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import random
 
 '''
 =================================================
@@ -11,8 +12,8 @@
 # https://stackoverflow.com/questions/22408237/named-colors-in-matplotlib
 
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 class WSN(object):
@@ -72,7 +73,7 @@ class WSN(object):
         nodes = WSN.nodes_list
         n_dead = 0
         for node in nodes:
-            if node.energy <= Node.energy_threshold:
+            if node.energy <= old_Node.energy_threshold:
                 n_dead += 1
                 if WSN.flag_first_dead == 0 and n_dead == 1:
                     WSN.flag_first_dead = 1
@@ -154,7 +155,7 @@ class Leach(object):
         for i in range(n):
             # After the energy dissipated in a given node reached a set threshold,
             # that node was considered dead for the remainder of the simulation.
-            if nodes[i].energy > Node.energy_threshold:  # Node is not dead
+            if nodes[i].energy > old_Node.energy_threshold:  # Node is not dead
                 if nodes[i].G == 0:  # The node is not selected as a cluster head in this period
                     temp_rand = np.random.random()
                     # print(temp_rand)
@@ -195,7 +196,7 @@ class Leach(object):
             return None
         # If the cluster head exists, use the cluster head id as the key value of the cluster dictionary
         for head in heads:
-            cluster[str(head.id)] = []  # Empty list of members
+            cluster[str(head.uid)] = []  # Empty list of members
         # print("Classification dictionary with cluster head only:", cluster)
         # Traverse non-cluster head nodes and build clusters
 
@@ -211,7 +212,7 @@ class Leach(object):
                 tmp = WSN.dist(member, head)
                 if tmp <= min_dis:
                     min_dis = tmp
-                    head_id = head.id
+                    head_id = head.uid
             member.head_id = head_id  # Cluster head found
             # Send joining information to notify its cluster head to become its member
             # send join-request messages to chosen cluster-head
@@ -220,7 +221,7 @@ class Leach(object):
             # wait for join-request messages
             head = nodes[head_id]
             head.energy -= WSN.ERX * WSN.CM
-            cluster[str(head_id)].append(member.id)  # Add to the corresponding cluster head of the clustering class
+            cluster[str(head_id)].append(member.uid)  # Add to the corresponding cluster head of the clustering class
         # Assign each node in the cluster the time point to pass data to it
         # Create a TDMA schedule and this schedule is broadcast back to the nodes in the cluster.
         for key, values in cluster.items():
@@ -299,7 +300,7 @@ class Leach(object):
             Leach.show_cluster(self)
 
 
-class Node(object):
+class old_Node(object):
     """ Sensor Node """
     energy_init = 0.5  # initial energy of a node
 
@@ -330,11 +331,11 @@ class Node(object):
 
         # Initial common node
         for i in range(WSN.n):
-            node = Node()
+            node = old_Node()
             node.id = i
             nodes_list.append(node)
         # Initial sink node
-        sink = Node()
+        sink = old_Node()
         sink.id = -1
         sink.xm = 0.5 * WSN.xm  # x coordination of base station
         sink.ym = 0.5 * WSN.ym  # y coordination of base station
@@ -347,7 +348,7 @@ class Node(object):
         """ Initialize attributes of every malicious node in order """
 
         for i in range(WSN.m_n):
-            node = Node()
+            node = old_Node()
             node.id = WSN.n + i
             WSN.nodes_list.append(node)
 
@@ -385,10 +386,76 @@ class Node(object):
         plt.show()
 
 
+class Node:
+
+    def __int__(self):
+        self.uid = random.randint(0, 1000000000)  # node ID for identification
+        self.xm = np.random.random() * WSN.xm  # Random X coordinate
+        self.ym = np.random.random() * WSN.ym  # Random Y coordinate
+
+        self.initial_energy = int()
+        self.remaining_energy = float()  # battery state
+        self.energy_threshold = 0.001
+
+        self.head = bool()  # operation mode: either head or node
+        self.was_head = bool()  # a counter, will be reset in every new round
+        self.head_probability = float()  # probability to become a cluster head
+
+        self.round_performed = int()  # number of rounds involved in doing work
+        self.max_round = int()
+
+        self.n_bs_distance = float()  # distance between node and base station
+
+        self.e_data_agg = float()
+        self.e_tx_fs = float()
+        self.e_tx_mp = float()
+        self.e_tx = float()
+        self.e_rx = float()
+
+    def auto_reset(self):
+        self.head = False
+        if self.round_performed % round(1 / self.head_probability) == 0:
+            self.was_head = False
+
+    def self_elect(self):
+        if not self.was_head:  # equals to "if self.was_head == False"
+            p = self.head_probability
+            r = self.round_performed
+            if random.random() <= (p / (1 - p * (r % round(1 / p)))):
+                self.head = True
+                self.was_head = True
+        else:
+            self.head = False
+
+    def send(self, d: float):
+        d_thres = (self.e_tx_fs / self.e_tx_mp) ** 0.5  # distance threshold
+        if d > d_thres:
+            self.remaining_energy = self.remaining_energy - ((4000 * self.e_tx) + (4000 * self.e_tx_mp * (d ** 4)))
+        else:
+            self.remaining_energy = self.remaining_energy - ((4000 * self.e_tx) + (4000 * self.e_tx_fs * (d ** 2)))
+
+    def receive(self):
+        self.remaining_energy = self.remaining_energy - (4000 * (self.e_rx + self.e_data_agg))
+
+    def send_to_bs(self):
+        d_thres = (self.e_tx_fs / self.e_tx_mp) ** 0.5  # distance threshold
+        if self.n_bs_distance > d_thres:  # use multi-path algorithm
+            self.remaining_energy = self.remaining_energy - (
+                    (4000 * (self.e_tx + self.e_data_agg)) + 4000 * self.e_tx_mp * (self.n_bs_distance ** 4))
+        else:  # use free space algorithm
+            self.remaining_energy = self.remaining_energy - (4000 * (self.e_tx + self.e_data_agg)) - (
+                    4000 * self.e_tx_fs * (self.n_bs_distance ** 2))
+
+
 def main():
-    Node().init_nodes()
-    Node().init_malicious_nodes()
-    Node().plot_wsn()  # this will plot all the nodes and sink only. This is before simulation starts
+    pass
+
+
+def old_main():
+    my_node = old_Node()
+    my_node.init_nodes()
+    my_node.init_malicious_nodes()
+    my_node.plot_wsn()  # this will plot all the nodes and sink only. This is before simulation starts
 
     Leach().run_leach()
 
@@ -420,5 +487,6 @@ def test():
 
 
 if __name__ == '__main__':
+    # old_main()
     main()
     # test()
